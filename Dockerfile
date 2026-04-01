@@ -15,7 +15,7 @@ COPY . .
 RUN npm run build
 
 # Stage 3: Production image
-FROM php:8.2-fpm-alpine AS app
+FROM php:8.4-fpm-alpine AS app
 
 LABEL org.opencontainers.image.source="https://github.com/isak-ialogics/rivalwatch"
 LABEL org.opencontainers.image.description="RivalWatch — PHP-FPM + Nginx production image"
