@@ -30,11 +30,13 @@ RUN apk add --no-cache \
     libzip-dev \
     oniguruma-dev \
     supervisor \
+    && apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install pdo pdo_pgsql gd zip mbstring bcmath opcache pcntl \
     && pecl install redis \
     && docker-php-ext-enable redis \
-    && rm -rf /var/cache/apk/*
+    && apk del .build-deps \
+    && rm -rf /var/cache/apk/* /tmp/pear
 
 # PHP production config
 RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
