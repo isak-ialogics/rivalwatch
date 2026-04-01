@@ -1,0 +1,59 @@
+services:
+  app:
+    image: ghcr.io/${GHCR_REPO:-rivalwatch}:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - rivalwatch
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.rivalwatch.rule=Host(`rivalwatch.vigilmon.online`)"
+      - "traefik.http.routers.rivalwatch.entrypoints=websecure"
+      - "traefik.http.routers.rivalwatch.tls.certresolver=letsencrypt"
+      - "traefik.http.services.rivalwatch.loadbalancer.server.port=80"
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-rivalwatch}
+      POSTGRES_USER: ${DB_USERNAME:-rivalwatch}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - rivalwatch
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-rivalwatch}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - rivalwatch
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  rivalwatch:
+  proxy:
+    external: true
