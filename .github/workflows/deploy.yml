@@ -92,6 +92,10 @@ jobs:
 
           docker pull "${IMAGE}"
 
+          # Fix storage permissions (www-data = uid 82 in Alpine)
+          sudo chown -R 82:82 storage 2>/dev/null || true
+          sudo chmod -R 775 storage 2>/dev/null || true
+
           # Run migrations via disposable container
           docker run --rm \
             --env-file .env \
