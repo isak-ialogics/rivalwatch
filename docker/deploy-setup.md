@@ -1,9 +1,10 @@
-# VPS Deployment Setup
+# VPS Deployment Setup (Docker Swarm)
 
-## Prerequisites on VPS
+## Prerequisites
 
-1. Docker and Docker Compose installed
-2. Traefik reverse proxy running on the `proxy` network (or adjust `docker-compose.prod.yml` if using a different proxy)
+- Docker with Swarm mode initialized on VPS (102.222.160.107)
+- Traefik running on the `traefik-public` overlay network (same as Vigil)
+- DNS: `rivalwatch.vigilmon.online` -> VPS IP (done)
 
 ## Initial VPS Setup
 
@@ -12,34 +13,35 @@
 sudo mkdir -p /opt/stacks/rivalwatch
 cd /opt/stacks/rivalwatch
 
-# Copy docker-compose.prod.yml and create .env
-cp docker-compose.prod.yml /opt/stacks/rivalwatch/
-cp .env.example .env
-# Edit .env with production values:
-#   APP_ENV=production
-#   APP_DEBUG=false
-#   APP_URL=https://rivalwatch.vigilmon.online
-#   DB_HOST=postgres
-#   DB_PASSWORD=<strong-password>
-#   REDIS_HOST=redis
+# Copy docker-compose.prod.yml from repo
+# Create .env with production values:
+cat > .env << 'EOF'
+APP_NAME=RivalWatch
+APP_ENV=production
+APP_KEY=base64:GENERATE_WITH_ARTISAN
+APP_DEBUG=false
+APP_URL=https://rivalwatch.vigilmon.online
+DB_DATABASE=rivalwatch
+DB_USERNAME=rivalwatch
+DB_PASSWORD=STRONG_PASSWORD_HERE
+REDIS_PASSWORD=
+QUEUE_CONNECTION=redis
+CACHE_STORE=redis
+SESSION_DRIVER=redis
+EOF
 
-# Create proxy network if it doesn't exist
-docker network create proxy 2>/dev/null || true
-
-# Start the stack
-docker compose -f docker-compose.prod.yml up -d
+# Deploy the stack
+docker stack deploy -c docker-compose.prod.yml rivalwatch
 ```
 
-## GitHub Repository Secrets Required
+## GitHub Repository Secrets
 
-| Secret        | Description                          |
-|---------------|--------------------------------------|
-| `VPS_HOST`    | VPS IP address or hostname           |
-| `VPS_USER`    | SSH user on VPS                      |
-| `VPS_SSH_KEY` | Private SSH key for VPS access       |
+Same as Vigil repo (`isak-ialogics/vigil`):
+
+| Secret        | Description                    |
+|---------------|--------------------------------|
+| `VPS_HOST`    | VPS IP (102.222.160.107)       |
+| `VPS_USER`    | SSH user on VPS                |
+| `VPS_SSH_KEY` | Private SSH key for VPS access |
 
 `GITHUB_TOKEN` is automatically available for GHCR authentication.
-
-## DNS
-
-Point `rivalwatch.vigilmon.online` A record to the VPS IP address.
