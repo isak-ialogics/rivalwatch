@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\GenerateWeeklyDigestJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -16,3 +17,6 @@ Schedule::command('rivalwatch:monitor --frequency=daily')->dailyAt('02:00');
 
 // Run weekly checks every Sunday
 Schedule::command('rivalwatch:monitor --frequency=weekly')->weekly()->sundays()->at('03:00');
+
+// Send weekly digest every Monday morning
+Schedule::job(new GenerateWeeklyDigestJob())->weekly()->mondays()->at('07:00');

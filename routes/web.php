@@ -3,6 +3,7 @@
 use App\Http\Controllers\ChangeController;
 use App\Http\Controllers\CompetitorController;
 use App\Http\Controllers\MonitoredPageController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Models\Change;
 use Illuminate\Foundation\Application;
@@ -70,6 +71,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Changes feed
     Route::get('/changes', [ChangeController::class, 'index'])->name('changes.index');
     Route::get('/changes/{change}', [ChangeController::class, 'show'])->name('changes.show');
+
+    // Notification preferences + history
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::patch('/notifications', [NotificationController::class, 'update'])->name('notifications.update');
 });
 
 require __DIR__.'/auth.php';

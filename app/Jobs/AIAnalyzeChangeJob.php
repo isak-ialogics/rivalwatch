@@ -9,6 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
 class AIAnalyzeChangeJob implements ShouldQueue
 {
@@ -24,5 +25,8 @@ class AIAnalyzeChangeJob implements ShouldQueue
     public function handle(AIAnalysisService $aiAnalysisService): void
     {
         $aiAnalysisService->analyse($this->change);
+
+        // Dispatch email alert after analysis so the email includes AI analysis text
+        SendChangeAlertJob::dispatch($this->change->fresh());
     }
 }

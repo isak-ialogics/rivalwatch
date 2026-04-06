@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\Alert;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -18,6 +19,11 @@ class User extends Authenticatable
         return $this->hasMany(Competitor::class);
     }
 
+    public function alerts(): HasMany
+    {
+        return $this->hasMany(Alert::class);
+    }
+
     /**
      * The attributes that are mass assignable.
      *
@@ -27,6 +33,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'notifications_enabled',
+        'notification_threshold',
     ];
 
     /**
@@ -47,8 +55,25 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'email_verified_at'      => 'datetime',
+            'password'               => 'hashed',
+            'notifications_enabled'  => 'boolean',
         ];
+    }
+
+    /**
+     * Check if a change meets this user's notification threshold.
+     */
+    public function shouldNotifyForSignificance(string $significance): bool
+    {
+        if (! $this->notifications_enabled) {
+            return false;
+        }
+        return match ($this->notification_threshold ?? 'medium') {
+            'all'    => true,
+            'medium' => in_array($significance, ['medium', 'high']),
+            'high'   => $significance === 'high',
+            default  => false,
+        };
     }
 }
