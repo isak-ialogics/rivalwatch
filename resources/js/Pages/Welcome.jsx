@@ -188,7 +188,7 @@ export default function Welcome({ auth, canLogin, canRegister }) {
                             </h1>
 
                             <p style={{ fontSize: '1.1rem', color: '#64748b', lineHeight: 1.7, marginBottom: '40px', maxWidth: '460px' }}>
-                                RivalWatch monitors your competitors 24/7, detects changes the moment they happen, and delivers AI-powered intelligence so you always stay one step ahead.
+                                Know what your competitors change before your customers do. RivalWatch monitors every pricing page, product update, and messaging tweak — and delivers AI-powered intelligence the moment it happens.
                             </p>
 
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', marginBottom: '48px' }}>
@@ -209,7 +209,7 @@ export default function Welcome({ auth, canLogin, canRegister }) {
 
                             {/* Trust signals */}
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '24px' }}>
-                                {['No credit card required', 'Setup in 2 minutes', 'Cancel anytime'].map(t => (
+                                {['No credit card required', 'Set up in 60 seconds', 'Cancel anytime'].map(t => (
                                     <span key={t} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#475569' }}>
                                         <svg width="14" height="14" fill="#6ee7b7" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
                                         {t}
@@ -309,10 +309,10 @@ export default function Welcome({ auth, canLogin, canRegister }) {
                         <div style={{ textAlign: 'center', marginBottom: '64px' }}>
                             <p className="section-label" style={{ marginBottom: '16px' }}>Core intelligence</p>
                             <h2 className="f-display" style={{ fontSize: 'clamp(2rem, 3.5vw, 3rem)', fontWeight: 800, color: '#fff', lineHeight: 1.1, marginBottom: '16px', letterSpacing: '-0.03em' }}>
-                                Everything you need to<br />outpace the competition
+                                Stop being the last one<br />to find out
                             </h2>
                             <p style={{ color: '#475569', fontSize: '1.05rem', maxWidth: '520px', margin: '0 auto', lineHeight: 1.65 }}>
-                                Purpose-built tools for competitive intelligence that actually moves the needle.
+                                Your competitors change their pricing, positioning, and product pages constantly. RivalWatch makes sure you know first — every time.
                             </p>
                         </div>
 
@@ -324,8 +324,8 @@ export default function Welcome({ auth, canLogin, canRegister }) {
                                 borderColor="rgba(0,229,255,0.15)"
                                 icon={<svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>}
                                 title="24/7 Competitor Monitoring"
-                                desc="Track unlimited competitor websites continuously. Set up monitoring in seconds — no code required. We watch so you don't have to."
-                                bullets={['Any website, any page', 'Unlimited competitors', 'Hourly check frequency']}
+                                desc="Paste a URL and you're live. RivalWatch crawls every page you care about on autopilot — pricing, product, blog, careers — so nothing slips through."
+                                bullets={['Any website, any page', 'Multiple competitors tracked', 'Checks run every hour']}
                                 checkClass="check-cyan"
                             />
                             {/* Feature 2 — highlighted */}
@@ -338,8 +338,8 @@ export default function Welcome({ auth, canLogin, canRegister }) {
                                 badgeColor="#6ee7b7"
                                 icon={<svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>}
                                 title="Instant Change Detection"
-                                desc="Get alerted the moment a competitor changes their pricing, launches a product, or updates their messaging. Never be caught off-guard."
-                                bullets={['Real-time Slack alerts', 'Visual diff highlights', 'Screenshot history']}
+                                desc="The moment a competitor tweaks their pricing, drops a new feature, or rewrites their pitch — you get an alert. Beats finding out from a customer."
+                                bullets={['Email & Slack alerts', 'Visual diff highlights', 'Full screenshot history']}
                                 checkClass="check-emerald"
                             />
                             {/* Feature 3 */}
@@ -349,8 +349,8 @@ export default function Welcome({ auth, canLogin, canRegister }) {
                                 borderColor="rgba(167,139,250,0.15)"
                                 icon={<svg width="22" height="22" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-2"/></svg>}
                                 title="AI-Powered Insights"
-                                desc="Don't just see changes — understand them. Our AI analyzes competitor moves and tells you exactly what it means for your strategy."
-                                bullets={['Strategy impact analysis', 'Trend identification', 'Weekly intelligence briefs']}
+                                desc="Don't just see that something changed — understand why it matters. Our AI reads between the lines so you can act, not just observe."
+                                bullets={['Strategy impact summaries', 'Trend identification', 'Weekly intelligence digest']}
                                 checkClass="check-purple"
                             />
                         </div>
@@ -377,17 +377,17 @@ export default function Welcome({ auth, canLogin, canRegister }) {
                             {[
                                 {
                                     title: 'Add your competitors',
-                                    desc: 'Paste in any website URL. Add as many competitors as you like. RivalWatch starts scanning immediately.',
+                                    desc: 'Paste any URL. Pricing page, product page, blog, careers — any page you care about. Takes 60 seconds.',
                                     icon: <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4"/></svg>
                                 },
                                 {
-                                    title: 'We monitor 24/7',
-                                    desc: 'Our crawlers continuously watch every page you care about. Any change — no matter how small — is captured the instant it happens.',
+                                    title: 'We watch around the clock',
+                                    desc: 'RivalWatch crawls every page on your schedule. Missed a change at 3 AM? We caught it — and saved a screenshot.',
                                     icon: <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                 },
                                 {
-                                    title: 'Act on intelligence',
-                                    desc: 'Receive instant alerts and AI-generated analysis explaining exactly what changed and why it matters for your competitive strategy.',
+                                    title: 'Get the intel, act fast',
+                                    desc: 'Alerts hit your inbox or Slack the moment a change lands. AI tells you what it means — so your next move is already clear.',
                                     icon: <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
                                 }
                             ].map((step, i) => (
@@ -416,35 +416,37 @@ export default function Welcome({ auth, canLogin, canRegister }) {
                             <h2 className="f-display" style={{ fontSize: 'clamp(2rem, 3.5vw, 3rem)', fontWeight: 800, color: '#fff', lineHeight: 1.1, marginBottom: '12px', letterSpacing: '-0.03em' }}>
                                 Simple, transparent pricing
                             </h2>
-                            <p style={{ color: '#475569', fontSize: '1rem' }}>Start free. Scale as you grow.</p>
+                            <p style={{ color: '#475569', fontSize: '1rem' }}>No setup fees. No long-term contracts. Cancel anytime.</p>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', maxWidth: '960px', margin: '0 auto' }}>
                             <PricingCard
                                 title="Starter"
-                                subtitle="For individuals"
-                                price="Free"
-                                features={['3 competitors', 'Daily monitoring', 'Email alerts', '30-day history']}
-                                cta={canRegister ? <Link href={route('register')} style={outlineBtn}>Get started free</Link> : <Link href={route('login')} style={outlineBtn}>Sign in</Link>}
+                                subtitle="For indie founders & solo operators"
+                                price="$29"
+                                priceNote="/month"
+                                features={['5 competitors', 'Daily monitoring', 'Email alerts', 'AI change summaries', '90-day history']}
+                                cta={canRegister ? <Link href={route('register')} style={outlineBtn}>Start free trial</Link> : <Link href={route('login')} style={outlineBtn}>Sign in</Link>}
                                 checkColor="#00e5ff"
                             />
                             <PricingCard
                                 title="Pro"
-                                subtitle="For growing teams"
-                                price="$49"
+                                subtitle="For growing startups & small teams"
+                                price="$79"
                                 priceNote="/month"
-                                features={['25 competitors', 'Hourly monitoring', 'Slack + email alerts', 'AI insights', '1-year history', 'Visual diffs']}
+                                features={['20 competitors', 'Hourly monitoring', 'Email + Slack alerts', 'Full AI insights & strategy notes', '1-year history', 'Visual diffs']}
                                 highlighted
                                 cta={canRegister ? <Link href={route('register')} style={filledBtn}>Start free trial</Link> : <Link href={route('login')} style={filledBtn}>Sign in</Link>}
                                 checkColor="#00e5ff"
                                 badge="Most popular"
                             />
                             <PricingCard
-                                title="Enterprise"
-                                subtitle="For large organizations"
-                                price="Custom"
-                                features={['Unlimited competitors', 'Real-time monitoring', 'Custom integrations', 'Dedicated AI analyst', 'SLA guarantee', 'SSO + SAML']}
-                                cta={<a href="mailto:hello@rivalwatch.com" style={outlineBtn}>Contact sales</a>}
+                                title="Agency"
+                                subtitle="For agencies & larger teams"
+                                price="$149"
+                                priceNote="/month"
+                                features={['Unlimited competitors', '15-min monitoring', 'Webhooks + priority alerts', 'White-label reports', 'API access', 'Dedicated AI analyst']}
+                                cta={canRegister ? <Link href={route('register')} style={outlineBtn}>Start free trial</Link> : <Link href={route('login')} style={outlineBtn}>Sign in</Link>}
                                 checkColor="#a78bfa"
                             />
                         </div>
@@ -458,19 +460,19 @@ export default function Welcome({ auth, canLogin, canRegister }) {
                     <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 65% 75% at 50% 50%, rgba(0,90,115,0.22) 0%, transparent 70%)' }}/>
                     <div style={{ position: 'relative', maxWidth: '720px', margin: '0 auto', textAlign: 'center' }}>
                         <h2 className="f-display" style={{ fontSize: 'clamp(2rem, 4vw, 3.2rem)', fontWeight: 800, color: '#fff', lineHeight: 1.1, marginBottom: '24px', letterSpacing: '-0.03em' }}>
-                            Start watching your<br />competition today
+                            Your competitors changed<br />something last night.
                         </h2>
                         <p style={{ color: '#475569', fontSize: '1.05rem', lineHeight: 1.65, marginBottom: '40px' }}>
-                            Join hundreds of businesses using RivalWatch to stay ahead. Free forever for up to 3 competitors.
+                            Did you know about it? Start your free trial today and never be the last to find out.
                         </p>
                         {canRegister ? (
                             <Link href={route('register')} className="glow-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '16px 36px', borderRadius: '14px', fontWeight: 700, color: '#030912', background: '#00e5ff', textDecoration: 'none', fontSize: '1rem' }}>
-                                Create your free account
+                                Start your free trial
                                 <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
                             </Link>
                         ) : (
                             <Link href={route('login')} className="glow-btn" style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', padding: '16px 36px', borderRadius: '14px', fontWeight: 700, color: '#030912', background: '#00e5ff', textDecoration: 'none', fontSize: '1rem' }}>
-                                Sign in to your account
+                                Go to dashboard
                             </Link>
                         )}
                     </div>
