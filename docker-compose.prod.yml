@@ -37,7 +37,7 @@ services:
       APP_ENV: ${APP_ENV:-production}
       APP_KEY: ${APP_KEY}
       APP_DEBUG: ${APP_DEBUG:-false}
-      APP_URL: ${APP_URL:-https://rivalwatch.vigilmon.online}
+      APP_URL: ${APP_URL:-https://rivalwatch.mplace.co.za}
       TRUSTED_PROXIES: "*"
       LOG_CHANNEL: stderr
       LOG_LEVEL: ${LOG_LEVEL:-info}
@@ -67,14 +67,14 @@ services:
       labels:
         - "traefik.enable=true"
         - "traefik.docker.network=traefik-public"
-        - "traefik.http.routers.rivalwatch.rule=Host(`rivalwatch.vigilmon.online`)"
+        - "traefik.http.routers.rivalwatch.rule=Host(`${DOMAIN:-rivalwatch.mplace.co.za}`)"
         - "traefik.http.routers.rivalwatch.entrypoints=websecure"
         - "traefik.http.routers.rivalwatch.tls=true"
         - "traefik.http.routers.rivalwatch.tls.certresolver=le"
         - "traefik.http.services.rivalwatch.loadbalancer.server.port=80"
         - "traefik.http.services.rivalwatch.loadbalancer.healthcheck.path=/up"
         - "traefik.http.services.rivalwatch.loadbalancer.healthcheck.interval=10s"
-        - "traefik.http.routers.rivalwatch-http.rule=Host(`rivalwatch.vigilmon.online`)"
+        - "traefik.http.routers.rivalwatch-http.rule=Host(`${DOMAIN:-rivalwatch.mplace.co.za}`)"
         - "traefik.http.routers.rivalwatch-http.entrypoints=web"
         - "traefik.http.routers.rivalwatch-http.middlewares=rivalwatch-redirect"
         - "traefik.http.routers.rivalwatch-http.service=rivalwatch"
@@ -92,7 +92,7 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-production}
       APP_KEY: ${APP_KEY}
-      APP_URL: ${APP_URL:-https://rivalwatch.vigilmon.online}
+      APP_URL: ${APP_URL:-https://rivalwatch.mplace.co.za}
       LOG_CHANNEL: stderr
       LOG_LEVEL: ${LOG_LEVEL:-info}
       DB_CONNECTION: pgsql
@@ -136,7 +136,7 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-production}
       APP_KEY: ${APP_KEY}
-      APP_URL: ${APP_URL:-https://rivalwatch.vigilmon.online}
+      APP_URL: ${APP_URL:-https://rivalwatch.mplace.co.za}
       LOG_CHANNEL: stderr
       LOG_LEVEL: ${LOG_LEVEL:-info}
       DB_CONNECTION: pgsql
