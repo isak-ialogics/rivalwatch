@@ -5,6 +5,7 @@ use App\Http\Controllers\CompetitorController;
 use App\Http\Controllers\MonitoredPageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\UserSiteController;
 use App\Models\Change;
 use App\Models\MonitoredPage;
 use Carbon\Carbon;
@@ -98,6 +99,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Notification preferences + history
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::patch('/notifications', [NotificationController::class, 'update'])->name('notifications.update');
+
+    // My Sites (rival discovery)
+    Route::get('/my-sites', [UserSiteController::class, 'index'])->name('my-sites.index');
+    Route::post('/my-sites', [UserSiteController::class, 'store'])->name('my-sites.store');
+    Route::get('/my-sites/{userSite}', [UserSiteController::class, 'show'])->name('my-sites.show');
+    Route::delete('/my-sites/{userSite}', [UserSiteController::class, 'destroy'])->name('my-sites.destroy');
+    Route::post('/my-sites/{userSite}/discover', [UserSiteController::class, 'discover'])->name('my-sites.discover');
+    Route::post('/my-sites/{userSite}/rivals/{discoveredRival}/add', [UserSiteController::class, 'addAsCompetitor'])->name('my-sites.add-rival');
 });
 
 require __DIR__.'/auth.php';

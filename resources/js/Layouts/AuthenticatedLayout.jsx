@@ -43,6 +43,12 @@ export default function AuthenticatedLayout({ header, children }) {
                                     Changes
                                 </NavLink>
                                 <NavLink
+                                    href={route('my-sites.index')}
+                                    active={route().current('my-sites.*')}
+                                >
+                                    My Sites
+                                </NavLink>
+                                <NavLink
                                     href={route('notifications.index')}
                                     active={route().current('notifications.*')}
                                 >
@@ -163,6 +169,12 @@ export default function AuthenticatedLayout({ header, children }) {
                             active={route().current('changes.*')}
                         >
                             Changes
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink
+                            href={route('my-sites.index')}
+                            active={route().current('my-sites.*')}
+                        >
+                            My Sites
                         </ResponsiveNavLink>
                         <ResponsiveNavLink
                             href={route('notifications.index')}
