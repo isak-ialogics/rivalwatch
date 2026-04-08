@@ -58,7 +58,7 @@ class CompetitorController extends Controller
 
         $recentChanges = $competitor->monitoredPages()
             ->with('changes', function ($q) {
-                $q->with(['snapshotBefore', 'snapshotAfter'])
+                $q->with(['monitoredPage'])
                   ->latest('detected_at')
                   ->limit(5);
             })
@@ -67,11 +67,22 @@ class CompetitorController extends Controller
             ->flatten()
             ->sortByDesc('detected_at')
             ->values()
-            ->take(10);
+            ->take(15);
+
+        // Stats for the competitor
+        $totalChanges = $competitor->monitoredPages()->withCount('changes')->get()->sum('changes_count');
+        $activePagesCount = $competitor->monitoredPages()->where('is_active', true)->count();
+        $lastCheckedAt = $competitor->monitoredPages()->max('last_checked_at');
 
         return Inertia::render('Competitors/Show', [
             'competitor'    => $competitor,
             'recentChanges' => $recentChanges,
+            'competitorStats' => [
+                'total_changes'    => $totalChanges,
+                'active_pages'     => $activePagesCount,
+                'total_pages'      => $competitor->monitoredPages->count(),
+                'last_checked_at'  => $lastCheckedAt,
+            ],
         ]);
     }
 

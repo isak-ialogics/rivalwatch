@@ -6,6 +6,8 @@ use App\Http\Controllers\MonitoredPageController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Models\Change;
+use App\Models\MonitoredPage;
+use Carbon\Carbon;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -23,11 +25,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Dashboard
     Route::get('/dashboard', function () {
         $user = request()->user();
+        $now = Carbon::now();
+        $weekAgo = $now->copy()->subWeek();
+        $twoWeeksAgo = $now->copy()->subWeeks(2);
 
         $competitors = $user->competitors()
             ->withCount(['monitoredPages', 'monitoredPages as active_pages_count' => function ($q) {
                 $q->where('is_active', true);
             }])
+            ->withCount(['monitoredPages as changes_count' => function ($q) {
+                $q->join('changes', 'monitored_pages.id', '=', 'changes.monitored_page_id');
+            }])
+            ->withMax('monitoredPages', 'last_checked_at')
             ->latest()
             ->get();
 
@@ -35,16 +44,30 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->whereHas('monitoredPage.competitor', fn ($q) => $q->where('user_id', $user->id))
             ->with(['monitoredPage.competitor'])
             ->latest('detected_at')
-            ->limit(5)
+            ->limit(10)
             ->get();
+
+        // Trend calculations
+        $competitorIds = $competitors->pluck('id');
+        $changesThisWeek = Change::whereHas('monitoredPage', fn ($q) => $q->whereIn('competitor_id', $competitorIds))
+            ->where('detected_at', '>=', $weekAgo)->count();
+        $changesLastWeek = Change::whereHas('monitoredPage', fn ($q) => $q->whereIn('competitor_id', $competitorIds))
+            ->whereBetween('detected_at', [$twoWeeksAgo, $weekAgo])->count();
+        $totalChanges = Change::whereHas('monitoredPage', fn ($q) => $q->whereIn('competitor_id', $competitorIds))->count();
+
+        $activePages = $user->competitors()
+            ->join('monitored_pages', 'competitors.id', '=', 'monitored_pages.competitor_id')
+            ->where('monitored_pages.is_active', true)->count();
 
         return Inertia::render('Dashboard', [
             'competitors'   => $competitors,
             'recentChanges' => $recentChanges,
             'stats' => [
-                'competitors'  => $competitors->count(),
-                'active_pages' => $user->competitors()->join('monitored_pages', 'competitors.id', '=', 'monitored_pages.competitor_id')->where('monitored_pages.is_active', true)->count(),
-                'total_changes' => $recentChanges->count(),
+                'competitors'      => $competitors->count(),
+                'active_pages'     => $activePages,
+                'total_changes'    => $totalChanges,
+                'changes_this_week' => $changesThisWeek,
+                'changes_last_week' => $changesLastWeek,
             ],
         ]);
     })->name('dashboard');
