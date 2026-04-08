@@ -63,6 +63,11 @@ RUN rm -f bootstrap/cache/packages.php bootstrap/cache/services.php
 RUN chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
 
+# Entrypoint: run migrations + cache on startup
+COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["entrypoint.sh"]
+
 EXPOSE 80
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \

@@ -3,6 +3,9 @@ set -e
 
 cd /var/www/html
 
+# Run pending migrations
+php artisan migrate --force
+
 # Cache config, routes, views for production
 php artisan config:cache
 php artisan route:cache
