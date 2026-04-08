@@ -86,27 +86,23 @@ jobs:
             DEPLOY_TOKEN="${DEPLOY_TOKEN}" IMAGE="${IMAGE}" GH_ACTOR="${GH_ACTOR}" \
             bash -s << 'EOF'
           set -e
-          cd /opt/stacks/rivalwatch
 
           echo "${DEPLOY_TOKEN}" | docker login ghcr.io -u "${GH_ACTOR}" --password-stdin
 
           docker pull "${IMAGE}"
 
-          # Fix storage permissions (www-data = uid 82 in Alpine)
-          sudo chown -R 82:82 storage 2>/dev/null || true
-          sudo chmod -R 775 storage 2>/dev/null || true
+          # Update or create swarm services with the latest image
+          if sudo docker service ls --filter name=rivalwatch_app >/dev/null 2>&1; then
+            echo "Updating existing RivalWatch services..."
+            sudo docker service update --force --with-registry-auth --image "${IMAGE}" rivalwatch_app
+            sudo docker service update --force --with-registry-auth --image "${IMAGE}" rivalwatch_horizon 2>/dev/null || true
+            sudo docker service update --force --with-registry-auth --image "${IMAGE}" rivalwatch_scheduler 2>/dev/null || true
+          else
+            echo "Creating new RivalWatch services..."
+            # This will be handled by manual setup or separate task
+            echo "Warning: RivalWatch services not found. Please ensure services are created via VPS setup."
+          fi
 
-          # Run migrations via disposable container
-          docker run --rm \
-            --env-file .env \
-            --network rivalwatch_rivalwatch-internal \
-            "${IMAGE}" \
-            php artisan migrate --force
-
-          # Update swarm services
-          docker service update --force --with-registry-auth --image "${IMAGE}" rivalwatch_app
-          docker service update --force --with-registry-auth --image "${IMAGE}" rivalwatch_horizon
-          docker service update --force --with-registry-auth --image "${IMAGE}" rivalwatch_scheduler
-
-          docker stack services rivalwatch --format 'table {{.Name}}\t{{.Replicas}}\t{{.Image}}'
+          echo "Service status:"
+          sudo docker service ls | grep rivalwatch || echo "No RivalWatch services found"
           EOF
