@@ -1,0 +1,98 @@
+name: PHP security PR validation
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: rivalwatch_test
+          POSTGRES_USER: rivalwatch
+          POSTGRES_PASSWORD: testpass
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pgsql,redis
+          coverage: none
+        env:
+          update: true
+
+      - name: Verify actual PHP security version
+        run: |
+          php -r 'if (PHP_VERSION_ID < 80427 || PHP_VERSION_ID >= 80500) { fwrite(STDERR, "PHP 8.4.27+ required; got ".PHP_VERSION."\n"); exit(1); }'
+
+      - name: Verify PHP source and runtime contracts
+        run: |
+          python3 -m unittest discover -s tests/security -p 'test_*.py' -v
+          php tests/security/php_version_guard.php
+
+      - name: Prepare isolated test environment
+        run: cp .env.example .env.testing
+
+      - name: Install locked dependencies
+        run: composer install --no-progress --prefer-dist --optimize-autoloader --no-interaction
+
+      - name: Generate test app key
+        run: php artisan key:generate --env=testing
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Build locked frontend assets
+        run: npm ci && npm run build
+
+      - name: Run test database migrations
+        env:
+          DB_DATABASE: rivalwatch_test
+          DB_USERNAME: rivalwatch
+          DB_PASSWORD: testpass
+          DB_HOST: localhost
+        run: php artisan migrate:fresh --env=testing
+
+      - name: Run locked PHPUnit suite
+        env:
+          DB_DATABASE: rivalwatch_test
+          DB_USERNAME: rivalwatch
+          DB_PASSWORD: testpass
+          DB_HOST: localhost
+        run: php artisan test
+
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build PHP/Composer and app images locally
+        run: |
+          docker build --target vendor -t rivalwatch-vendor:pr .
+          docker build --target app -t rivalwatch-app:pr .
+
+      - name: Check actual PHP interpreters and extensions without startup
+        run: |
+          docker run --rm --network none --entrypoint php rivalwatch-vendor:pr -r 'if (PHP_VERSION_ID < 80512 || PHP_VERSION_ID >= 80600) exit(1);'
+          docker run --rm --network none --entrypoint php rivalwatch-app:pr -r 'if (PHP_VERSION_ID < 80427 || PHP_VERSION_ID >= 80500) exit(1); foreach (["pdo_pgsql", "gd", "zip", "mbstring", "bcmath", "pcntl", "redis", "Zend OPcache"] as $extension) { if (!extension_loaded($extension)) { fwrite(STDERR, "Missing PHP extension: $extension\n"); exit(1); } }'
+          docker run --rm --network none --entrypoint php-fpm rivalwatch-app:pr -v | grep -E '^PHP 8\.4\.27 '

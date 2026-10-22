@@ -41,6 +41,12 @@ jobs:
           php-version: '8.4'
           extensions: pgsql,redis
           coverage: none
+        env:
+          update: true
+
+      - name: Verify actual PHP security version
+        run: |
+          php -r 'if (PHP_VERSION_ID < 80427 || PHP_VERSION_ID >= 80500) { fwrite(STDERR, "PHP 8.4.27+ required; got ".PHP_VERSION."\n"); exit(1); }'
 
       - name: Copy .env
         run: cp .env.example .env.testing
@@ -142,7 +148,7 @@ jobs:
           DEPLOY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build-and-push.outputs.image-tag }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-push.outputs.image-digest }}
           GH_ACTOR: ${{ github.actor }}
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "${VPS_USER}@${VPS_HOST}" \
@@ -154,7 +160,7 @@ jobs:
 
           docker pull "${IMAGE}"
 
-          # Update or create swarm services with the latest image
+          # Update or create swarm services with the exact published image
           if sudo docker service ls --filter name=rivalwatch_app >/dev/null 2>&1; then
             echo "Updating existing RivalWatch services..."
             sudo docker service update --force --with-registry-auth --image "${IMAGE}" rivalwatch_app

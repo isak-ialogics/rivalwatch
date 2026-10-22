@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+php -r 'require "/var/www/html/bootstrap/php-version.php";'
+
 cd /var/www/html
 
 # Run pending migrations
