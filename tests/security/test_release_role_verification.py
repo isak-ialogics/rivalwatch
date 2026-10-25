@@ -202,13 +202,26 @@ class ReleaseRoleVerification(unittest.TestCase):
                                         for call in result.docker_calls))
 
     def test_terminal_label_with_live_local_container_is_not_stopped(self):
-        result = self.assert_refused_after_updates("history_complete_local_running")
-        self.assertTrue(any("inspect --type container " in call and
-                            call.endswith("rivalwatch_app-container-old")
-                            for call in result.docker_calls), "terminal state needs actual old-container inspection")
+        for state in ("complete", "shutdown"):
+            with self.subTest(state=state):
+                result = self.assert_refused_after_updates(f"history_{state}_local_running")
+                self.assertTrue(any("inspect --type container " in call and
+                                    call.endswith("rivalwatch_app-container-old")
+                                    for call in result.docker_calls), "terminal state needs actual old-container inspection")
 
     def test_remote_terminal_history_cannot_be_verified_locally(self):
-        self.assert_refused_after_updates("history_complete_remote_stopped")
+        for state in ("complete", "shutdown"):
+            with self.subTest(state=state):
+                self.assert_refused_after_updates(f"history_{state}_remote_stopped")
+
+    def test_shutdown_history_can_converge_after_independent_container_exit_proof(self):
+        result, updates = self.run_release("history_shutdown_local_stopped")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(updates, list(ROLES))
+        self.assertIn("Verified desired and running container image", result.stdout)
+        self.assertTrue(any("inspect --type container " in call and
+                            call.endswith("rivalwatch_app-container-old")
+                            for call in result.docker_calls))
 
     def test_genuinely_stopped_local_history_can_converge(self):
         for state in ("complete", "failed", "rejected"):
@@ -233,10 +246,14 @@ class ReleaseRoleVerification(unittest.TestCase):
         self.assert_refused_after_updates("container_ls_missing")
 
     def test_historical_container_inspection_failure_is_not_absence(self):
-        self.assert_refused_after_updates("history_complete_local_inspect_error")
+        for state in ("complete", "shutdown"):
+            with self.subTest(state=state):
+                self.assert_refused_after_updates(f"history_{state}_local_inspect_error")
 
     def test_terminal_history_without_container_identity_cannot_pass(self):
-        self.assert_refused_after_updates("history_complete_local_missing_id")
+        for state in ("complete", "shutdown"):
+            with self.subTest(state=state):
+                self.assert_refused_after_updates(f"history_{state}_local_missing_id")
 
     def test_missing_extra_and_transitional_tasks_cannot_pass(self):
         for case in ("missing_tasks", "extra_live", "transitional"):

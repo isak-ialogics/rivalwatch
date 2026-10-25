@@ -221,7 +221,8 @@ jobs:
                 fi
                 if [[ "$desired" == shutdown ]]; then
                   # Terminal task labels alone do not prove its container stopped.
-                  if [[ "$state" =~ ^(complete|failed|rejected)$ && -n "$container_id" ]]; then
+                  # Shutdown status also needs independent container-exit proof.
+                  if [[ "$state" =~ ^(complete|failed|shutdown|rejected)$ && -n "$container_id" ]]; then
                     old_state="$(sudo docker inspect --type container --format '{{.State.Running}}|{{.State.Status}}' "$container_id")"
                     if [[ "$old_state" != 'false|exited' ]]; then converged=0; fi
                   else
