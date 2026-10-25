@@ -1,5 +1,6 @@
 # Stage 1: Composer dependencies
-FROM composer:2 AS vendor
+FROM composer:2@sha256:da624c2c705d54e2f5a9bb77a5dc6c7d091711433ebefd7035672e84c2010fee AS vendor
+RUN php -r 'if (PHP_VERSION_ID < 80512 || PHP_VERSION_ID >= 80600) { fwrite(STDERR, "Composer PHP 8.5.12+ required\n"); exit(1); }'
 WORKDIR /app
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-interaction --no-autoloader --ignore-platform-reqs --prefer-dist
@@ -15,7 +16,8 @@ COPY . .
 RUN npm run build
 
 # Stage 3: Production image
-FROM php:8.4-fpm-alpine AS app
+FROM php:8.4.27-fpm-alpine@sha256:8ce34c869fae0f8da2c82d8aeda222f0782e8e5ae2b370fb43cbad84e9e2ea55 AS app
+RUN php -r 'if (PHP_VERSION_ID < 80427 || PHP_VERSION_ID >= 80500) { fwrite(STDERR, "App PHP 8.4.27+ required\n"); exit(1); }'
 
 LABEL org.opencontainers.image.source="https://github.com/isak-ialogics/rivalwatch"
 LABEL org.opencontainers.image.description="RivalWatch — PHP-FPM + Nginx production image"

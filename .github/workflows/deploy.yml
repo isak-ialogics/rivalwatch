@@ -41,6 +41,12 @@ jobs:
           php-version: '8.4'
           extensions: pgsql,redis
           coverage: none
+        env:
+          update: true
+
+      - name: Verify actual PHP security version
+        run: |
+          php -r 'if (PHP_VERSION_ID < 80427 || PHP_VERSION_ID >= 80500) { fwrite(STDERR, "PHP 8.4.27+ required; got ".PHP_VERSION."\n"); exit(1); }'
 
       - name: Copy .env
         run: cp .env.example .env.testing
@@ -142,30 +148,136 @@ jobs:
           DEPLOY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build-and-push.outputs.image-tag }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-push.outputs.image-digest }}
           GH_ACTOR: ${{ github.actor }}
         run: |
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "${VPS_USER}@${VPS_HOST}" \
             DEPLOY_TOKEN="${DEPLOY_TOKEN}" IMAGE="${IMAGE}" GH_ACTOR="${GH_ACTOR}" \
             bash -s << 'EOF'
-          set -e
+          set -euo pipefail
+
+          if [[ ! "$IMAGE" =~ ^ghcr\.io/[^[:space:]@]+@sha256:[a-f0-9]{64}$ ]]; then
+            echo "Release requires a published immutable GHCR application digest" >&2
+            exit 1
+          fi
 
           echo "${DEPLOY_TOKEN}" | docker login ghcr.io -u "${GH_ACTOR}" --password-stdin
 
           docker pull "${IMAGE}"
 
-          # Update or create swarm services with the latest image
-          if sudo docker service ls --filter name=rivalwatch_app >/dev/null 2>&1; then
-            echo "Updating existing RivalWatch services..."
-            sudo docker service update --force --with-registry-auth --image "${IMAGE}" rivalwatch_app
-            sudo docker service update --force --with-registry-auth --image "${IMAGE}" rivalwatch_horizon 2>/dev/null || true
-            sudo docker service update --force --with-registry-auth --image "${IMAGE}" rivalwatch_scheduler 2>/dev/null || true
-          else
-            echo "Creating new RivalWatch services..."
-            # This will be handled by manual setup or separate task
-            echo "Warning: RivalWatch services not found. Please ensure services are created via VPS setup."
+          # Verify the complete exact role set before the first service mutation.
+          roles=(rivalwatch_app rivalwatch_horizon rivalwatch_scheduler)
+          services="$(sudo docker service ls --format '{{.Name}}')"
+          for role in "${roles[@]}"; do
+            if ! grep -Fxq "$role" <<< "$services"; then
+              echo "Missing required Swarm service: $role" >&2
+              exit 1
+            fi
+          done
+
+          for role in "${roles[@]}"; do
+            sudo docker service update --force --with-registry-auth --image "$IMAGE" "$role"
+          done
+
+          # The manager can inspect its own running containers. A task on another
+          # node cannot be read back through this path, so hold rather than infer.
+          image_id="$(sudo docker image inspect --format '{{.Id}}' "$IMAGE")"
+          local_node="$(sudo docker info --format '{{.Swarm.NodeID}}')"
+          if [[ ! "$image_id" =~ ^sha256:[a-f0-9]{64}$ || -z "$local_node" ]]; then
+            echo "Cannot establish local immutable image/node identity" >&2
+            exit 1
           fi
 
-          echo "Service status:"
-          sudo docker service ls | grep rivalwatch || echo "No RivalWatch services found"
+          # Swarm updates may return before the task inventory is fully settled.
+          for attempt in {1..10}; do
+            converged=1
+            for role in "${roles[@]}"; do
+              spec_image="$(sudo docker service inspect --format '{{.Spec.TaskTemplate.ContainerSpec.Image}}' "$role")"
+              replicas="$(sudo docker service inspect --format '{{.Spec.Mode.Replicated.Replicas}}' "$role")"
+              if [[ "$spec_image" != "$IMAGE" || ! "$replicas" =~ ^[1-9][0-9]*$ ]]; then
+                converged=0
+                continue
+              fi
+
+              # Do not filter by desired state: an old but still-live task also
+              # blocks convergence, even if Swarm wants to shut it down.
+              task_ids="$(sudo docker service ps --no-trunc --format '{{.ID}}' "$role")"
+              running=0
+              declare -A expected_containers=()
+              if [[ -z "$task_ids" ]]; then
+                converged=0
+                continue
+              fi
+              while IFS= read -r task_id; do
+                if [[ -z "$task_id" ]]; then
+                  converged=0
+                  continue
+                fi
+                task="$(sudo docker inspect --type task --format '{{.DesiredState}}|{{.Status.State}}|{{.Spec.ContainerSpec.Image}}|{{.NodeID}}|{{if .Status.ContainerStatus}}{{.Status.ContainerStatus.ContainerID}}{{end}}' "$task_id")"
+                IFS='|' read -r desired state task_image node container_id <<< "$task"
+                if [[ "$node" != "$local_node" ]]; then
+                  echo "Cannot inspect remote or unplaced container for $role ($task_id)" >&2
+                  exit 1
+                fi
+                if [[ "$desired" == shutdown ]]; then
+                  # Terminal task labels alone do not prove its container stopped.
+                  # Shutdown status also needs independent container-exit proof.
+                  if [[ "$state" =~ ^(complete|failed|shutdown|rejected)$ && -n "$container_id" ]]; then
+                    old_state="$(sudo docker inspect --type container --format '{{.State.Running}}|{{.State.Status}}' "$container_id")"
+                    if [[ "$old_state" != 'false|exited' ]]; then converged=0; fi
+                  else
+                    converged=0
+                  fi
+                  continue
+                fi
+                if [[ "$desired" != running || "$state" != running || "$task_image" != "$IMAGE" || -z "$container_id" ]]; then
+                  converged=0
+                  continue
+                fi
+                observed="$(sudo docker inspect --type container --format '{{.State.Running}}|{{.Image}}|{{.Config.Image}}' "$container_id")"
+                if [[ "$observed" != "true|$image_id|$IMAGE" ]]; then
+                  converged=0
+                  continue
+                fi
+                if [[ -n "${expected_containers[$container_id]-}" ]]; then
+                  converged=0
+                  continue
+                fi
+                expected_containers["$container_id"]="$task_id"
+                running=$((running + 1))
+              done <<< "$task_ids"
+              if [[ "$running" -ne "$replicas" ]]; then
+                converged=0
+              fi
+
+              # Service ps can omit an old container. Reconcile the independent
+              # local running inventory against the inspected task/container map.
+              live_ids="$(sudo docker container ls --no-trunc --filter "label=com.docker.swarm.service.name=$role" --format '{{.ID}}')"
+              listed=0
+              declare -A seen_containers=()
+              if [[ -n "$live_ids" ]]; then
+                while IFS= read -r live_id; do
+                  if [[ -z "$live_id" || -z "${expected_containers[$live_id]-}" || -n "${seen_containers[$live_id]-}" ]]; then
+                    converged=0
+                    continue
+                  fi
+                  observed="$(sudo docker inspect --type container --format '{{.State.Running}}|{{.Image}}|{{.Config.Image}}' "$live_id")"
+                  if [[ "$observed" != "true|$image_id|$IMAGE" ]]; then
+                    converged=0
+                    continue
+                  fi
+                  seen_containers["$live_id"]=1
+                  listed=$((listed + 1))
+                done <<< "$live_ids"
+              fi
+              if [[ "$listed" -ne "$running" ]]; then converged=0; fi
+            done
+            if [[ "$converged" -eq 1 ]]; then
+              echo "Verified desired and running container image for all required RivalWatch roles."
+              exit 0
+            fi
+            if [[ "$attempt" -lt 10 ]]; then sleep 3; fi
+          done
+          echo "RivalWatch roles did not converge on the published running image" >&2
+          exit 1
           EOF

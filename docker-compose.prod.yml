@@ -26,7 +26,7 @@ services:
   # Laravel App (PHP-FPM + Nginx)
   # ----------------------------------------------------------
   app:
-    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-isak-ialogics/rivalwatch}:${IMAGE_TAG:-latest}
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-isak-ialogics/rivalwatch}@sha256:${IMAGE_SHA256:?Set reviewed immutable application image SHA256 (not base image)}
     networks:
       - traefik-public
       - rivalwatch-internal
@@ -84,7 +84,7 @@ services:
   # Horizon Queue Worker
   # ----------------------------------------------------------
   horizon:
-    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-isak-ialogics/rivalwatch}:${IMAGE_TAG:-latest}
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-isak-ialogics/rivalwatch}@sha256:${IMAGE_SHA256:?Set reviewed immutable application image SHA256 (not base image)}
     networks:
       - rivalwatch-internal
     volumes:
@@ -128,7 +128,7 @@ services:
   # Scheduler
   # ----------------------------------------------------------
   scheduler:
-    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-isak-ialogics/rivalwatch}:${IMAGE_TAG:-latest}
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-isak-ialogics/rivalwatch}@sha256:${IMAGE_SHA256:?Set reviewed immutable application image SHA256 (not base image)}
     networks:
       - rivalwatch-internal
     volumes:
