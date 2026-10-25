@@ -92,6 +92,7 @@ jobs:
           docker build --target app -t rivalwatch-app:pr .
 
       - name: Check actual PHP interpreters and extensions without startup
+        shell: bash
         run: |
           docker run --rm --network none --entrypoint php rivalwatch-vendor:pr -r 'if (PHP_VERSION_ID < 80512 || PHP_VERSION_ID >= 80600) exit(1);'
           docker run --rm --network none --entrypoint php rivalwatch-app:pr -r 'if (PHP_VERSION_ID < 80427 || PHP_VERSION_ID >= 80500) exit(1); foreach (["pdo_pgsql", "gd", "zip", "mbstring", "bcmath", "pcntl", "redis", "Zend OPcache"] as $extension) { if (!extension_loaded($extension)) { fwrite(STDERR, "Missing PHP extension: $extension\n"); exit(1); } }'
