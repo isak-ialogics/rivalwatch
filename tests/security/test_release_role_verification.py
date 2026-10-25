@@ -29,6 +29,7 @@ def image_step():
 
 # Bash functions shadow Docker/sudo in this child only; no daemon, SSH, or host operation.
 FAKE_DOCKER = r'''docker() {
+    printf '%s\n' "$*" >> "$DOCKER_LOG"
     case "$1 $2" in
         login\ *|pull\ *) return 0 ;;
         "service ls")
@@ -54,7 +55,17 @@ FAKE_DOCKER = r'''docker() {
             local role="${@: -1}"
             [[ "$SCENARIO" == missing_tasks && "$role" == rivalwatch_app ]] && return 0
             printf '%s\n' "${role}-task"
-            [[ "$SCENARIO" == extra_live && "$role" == rivalwatch_app ]] && printf '%s\n' "${role}-old"
+            [[ "$role" == rivalwatch_app && ( "$SCENARIO" == extra_live || "$SCENARIO" == history_* ) ]] && printf '%s\n' "${role}-old"
+            return 0 ;;
+        "container ls")
+            [[ "$SCENARIO" == container_ls_error ]] && return 9
+            local role='' arg
+            for arg in "$@"; do
+                [[ "$arg" == label=com.docker.swarm.service.name=* ]] && role="${arg##*=}"
+            done
+            [[ -n "$role" ]] || return 13
+            [[ "$SCENARIO" == container_ls_missing && "$role" == rivalwatch_app ]] || printf '%s\n' "${role}-container"
+            [[ "$role" == rivalwatch_app && "$SCENARIO" == extra_unlisted_running ]] && printf '%s\n' "${role}-container-old"
             return 0 ;;
         "image inspect") printf '%s\n' "$IMAGE_ID"; return 0 ;;
         "info --format") printf 'local-node\n'; return 0 ;;
@@ -62,7 +73,15 @@ FAKE_DOCKER = r'''docker() {
             local kind="$3" id="${@: -1}"
             if [[ "$kind" == task ]]; then
                 if [[ "$id" == *-old ]]; then
-                    printf 'shutdown|running|%s|local-node|%s\n' "$IMAGE" "${id%-old}-container-old"
+                    if [[ "$SCENARIO" == history_* ]]; then
+                        local history_state="${SCENARIO#history_}" history_node=local-node history_id="${id%-old}-container-old"
+                        history_state="${history_state%%_*}"
+                        [[ "$SCENARIO" == *_remote_* ]] && history_node=remote-node
+                        [[ "$SCENARIO" == *_missing_id ]] && history_id=''
+                        printf 'shutdown|%s|%s|%s|%s\n' "$history_state" "$IMAGE" "$history_node" "$history_id"
+                    else
+                        printf 'shutdown|running|%s|local-node|%s\n' "$IMAGE" "${id%-old}-container-old"
+                    fi
                 elif [[ "$SCENARIO" == transitional && "$id" == rivalwatch_app-* ]]; then
                     printf 'running|preparing|%s|local-node|\n' "$IMAGE"
                 elif [[ "$SCENARIO" == stale_task_image && "$id" == rivalwatch_app-* ]]; then
@@ -74,6 +93,15 @@ FAKE_DOCKER = r'''docker() {
                 fi
             elif [[ "$kind" == container ]]; then
                 [[ "$SCENARIO" == unreadable_container && "$id" == rivalwatch_app-* ]] && return 8
+                if [[ "$*" == *State.Status* ]]; then
+                    [[ "$SCENARIO" == history_*_inspect_error && "$id" == *-old ]] && return 8
+                    if [[ "$SCENARIO" == history_*_stopped && "$id" == *-old ]]; then
+                        printf 'false|exited\n'
+                    else
+                        printf 'true|running\n'
+                    fi
+                    return 0
+                fi
                 local runtime_id="$IMAGE_ID" runtime_ref="$IMAGE"
                 [[ "$SCENARIO" == stale_container_image && "$id" == rivalwatch_app-* ]] && runtime_id="sha256:$(printf 'c%.0s' {1..64})"
                 [[ "$SCENARIO" == wrong_container_ref && "$id" == rivalwatch_app-* ]] && runtime_ref='ghcr.io/example/rivalwatch:latest'
@@ -93,21 +121,38 @@ sleep() { :; }
 
 class ReleaseRoleVerification(unittest.TestCase):
     def run_release(self, scenario, image=IMAGE):
-        with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as directory:
+        scratch = os.environ.get("TMPDIR") or tempfile.gettempdir()
+        with tempfile.TemporaryDirectory(dir=scratch) as directory:
             log = pathlib.Path(directory) / "updates.txt"
-            env = dict(os.environ, SCENARIO=scenario, IMAGE=image, IMAGE_ID=IMAGE_ID,
-                       UPDATE_LOG=str(log), DEPLOY_TOKEN="synthetic-only", GH_ACTOR="synthetic-only")
-            result = subprocess.run(["bash", "-e", "-c", FAKE_DOCKER + release_shell()],
+            docker_log = pathlib.Path(directory) / "docker.txt"
+            env = dict(os.environ, TMPDIR=scratch, TMP=scratch, TEMP=scratch,
+                       SCENARIO=scenario, IMAGE=image, IMAGE_ID=IMAGE_ID,
+                       UPDATE_LOG=str(log), DOCKER_LOG=str(docker_log),
+                       DEPLOY_TOKEN="synthetic-only", GH_ACTOR="synthetic-only")
+            env = {key: value for key, value in env.items() if not key.startswith("GIT_")}
+            result = subprocess.run(["bash", "-e"], input=FAKE_DOCKER + release_shell() + "\n",
                                     env=env, text=True, capture_output=True, timeout=20)
             updates = log.read_text(encoding="utf-8").splitlines() if log.exists() else []
+            result.docker_calls = docker_log.read_text(encoding="utf-8").splitlines() if docker_log.exists() else []
             return result, updates
+
+    def assert_refused_after_updates(self, scenario):
+        result, updates = self.run_release(scenario)
+        self.assertEqual(updates, list(ROLES), result.stderr)
+        self.assertNotIn("Unrecognized synthetic Docker call", result.stderr)
+        self.assertNotEqual(result.returncode, 0, result.stdout)
+        self.assertNotIn("Verified desired and running container image", result.stdout)
+        return result
 
     def test_fpm_probe_rejects_matching_output_from_failed_docker(self):
         step, run = image_step()
         stub = "docker() { case \"$*\" in *php-fpm*) printf 'PHP 8.4.27 (fpm-fcgi)\\n'; return 42;; *) return 0;; esac; };\n"
         flags = ["-e"] + (["-o", "pipefail"] if re.search(r"(?m)^        shell: bash\s*$", step) else [])
+        scratch = os.environ.get("TMPDIR") or tempfile.gettempdir()
+        env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+        env.update(TMPDIR=scratch, TMP=scratch, TEMP=scratch)
         result = subprocess.run(["bash", *flags, "-c", stub + run], text=True,
-                                capture_output=True, timeout=10)
+                                capture_output=True, timeout=10, env=env)
         self.assertNotEqual(result.returncode, 0, "failed FPM producer must fail the real PR step")
 
     def test_preflight_requires_exact_complete_service_list_before_any_update(self):
@@ -136,6 +181,62 @@ class ReleaseRoleVerification(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(updates, list(ROLES))
         self.assertIn("verified", result.stdout.lower())
+
+    def test_healthy_roles_are_independently_enumerated(self):
+        result, updates = self.run_release("healthy")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(updates, list(ROLES))
+        for role in ROLES:
+            self.assertTrue(any(call.startswith("container ls ") and
+                                "label=com.docker.swarm.service.name=" + role in call
+                                for call in result.docker_calls), role)
+
+    def test_historical_nonterminal_and_orphaned_tasks_never_establish_stopped(self):
+        for state in ("shutdown", "orphaned", "remove"):
+            for location in ("local", "remote"):
+                case = f"history_{state}_{location}_running"
+                with self.subTest(case=case):
+                    result = self.assert_refused_after_updates(case)
+                    self.assertTrue(any("inspect --type task " in call and
+                                        call.endswith("rivalwatch_app-old")
+                                        for call in result.docker_calls))
+
+    def test_terminal_label_with_live_local_container_is_not_stopped(self):
+        result = self.assert_refused_after_updates("history_complete_local_running")
+        self.assertTrue(any("inspect --type container " in call and
+                            call.endswith("rivalwatch_app-container-old")
+                            for call in result.docker_calls), "terminal state needs actual old-container inspection")
+
+    def test_remote_terminal_history_cannot_be_verified_locally(self):
+        self.assert_refused_after_updates("history_complete_remote_stopped")
+
+    def test_genuinely_stopped_local_history_can_converge(self):
+        for state in ("complete", "failed", "rejected"):
+            with self.subTest(state=state):
+                result, updates = self.run_release(f"history_{state}_local_stopped")
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(updates, list(ROLES))
+                self.assertTrue(any("inspect --type container " in call and
+                                    call.endswith("rivalwatch_app-container-old")
+                                    for call in result.docker_calls))
+
+    def test_unlisted_extra_running_service_container_blocks_verification(self):
+        result = self.assert_refused_after_updates("extra_unlisted_running")
+        self.assertTrue(any("container ls " in call and
+                            "label=com.docker.swarm.service.name=rivalwatch_app" in call
+                            for call in result.docker_calls))
+
+    def test_running_container_enumeration_failure_cannot_pass(self):
+        self.assert_refused_after_updates("container_ls_error")
+
+    def test_missing_enumerated_running_container_cannot_pass(self):
+        self.assert_refused_after_updates("container_ls_missing")
+
+    def test_historical_container_inspection_failure_is_not_absence(self):
+        self.assert_refused_after_updates("history_complete_local_inspect_error")
+
+    def test_terminal_history_without_container_identity_cannot_pass(self):
+        self.assert_refused_after_updates("history_complete_local_missing_id")
 
     def test_missing_extra_and_transitional_tasks_cannot_pass(self):
         for case in ("missing_tasks", "extra_live", "transitional"):

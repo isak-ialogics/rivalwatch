@@ -203,6 +203,7 @@ jobs:
               # blocks convergence, even if Swarm wants to shut it down.
               task_ids="$(sudo docker service ps --no-trunc --format '{{.ID}}' "$role")"
               running=0
+              declare -A expected_containers=()
               if [[ -z "$task_ids" ]]; then
                 converged=0
                 continue
@@ -214,27 +215,61 @@ jobs:
                 fi
                 task="$(sudo docker inspect --type task --format '{{.DesiredState}}|{{.Status.State}}|{{.Spec.ContainerSpec.Image}}|{{.NodeID}}|{{if .Status.ContainerStatus}}{{.Status.ContainerStatus.ContainerID}}{{end}}' "$task_id")"
                 IFS='|' read -r desired state task_image node container_id <<< "$task"
-                if [[ "$desired" == shutdown && "$state" =~ ^(shutdown|complete|failed|rejected|orphaned|remove)$ ]]; then
-                  continue  # historical, stopped task
+                if [[ "$node" != "$local_node" ]]; then
+                  echo "Cannot inspect remote or unplaced container for $role ($task_id)" >&2
+                  exit 1
+                fi
+                if [[ "$desired" == shutdown ]]; then
+                  # Terminal task labels alone do not prove its container stopped.
+                  if [[ "$state" =~ ^(complete|failed|rejected)$ && -n "$container_id" ]]; then
+                    old_state="$(sudo docker inspect --type container --format '{{.State.Running}}|{{.State.Status}}' "$container_id")"
+                    if [[ "$old_state" != 'false|exited' ]]; then converged=0; fi
+                  else
+                    converged=0
+                  fi
+                  continue
                 fi
                 if [[ "$desired" != running || "$state" != running || "$task_image" != "$IMAGE" || -z "$container_id" ]]; then
                   converged=0
                   continue
-                fi
-                if [[ "$node" != "$local_node" ]]; then
-                  echo "Cannot inspect remote running container for $role ($task_id)" >&2
-                  exit 1
                 fi
                 observed="$(sudo docker inspect --type container --format '{{.State.Running}}|{{.Image}}|{{.Config.Image}}' "$container_id")"
                 if [[ "$observed" != "true|$image_id|$IMAGE" ]]; then
                   converged=0
                   continue
                 fi
+                if [[ -n "${expected_containers[$container_id]-}" ]]; then
+                  converged=0
+                  continue
+                fi
+                expected_containers["$container_id"]="$task_id"
                 running=$((running + 1))
               done <<< "$task_ids"
               if [[ "$running" -ne "$replicas" ]]; then
                 converged=0
               fi
+
+              # Service ps can omit an old container. Reconcile the independent
+              # local running inventory against the inspected task/container map.
+              live_ids="$(sudo docker container ls --no-trunc --filter "label=com.docker.swarm.service.name=$role" --format '{{.ID}}')"
+              listed=0
+              declare -A seen_containers=()
+              if [[ -n "$live_ids" ]]; then
+                while IFS= read -r live_id; do
+                  if [[ -z "$live_id" || -z "${expected_containers[$live_id]-}" || -n "${seen_containers[$live_id]-}" ]]; then
+                    converged=0
+                    continue
+                  fi
+                  observed="$(sudo docker inspect --type container --format '{{.State.Running}}|{{.Image}}|{{.Config.Image}}' "$live_id")"
+                  if [[ "$observed" != "true|$image_id|$IMAGE" ]]; then
+                    converged=0
+                    continue
+                  fi
+                  seen_containers["$live_id"]=1
+                  listed=$((listed + 1))
+                done <<< "$live_ids"
+              fi
+              if [[ "$listed" -ne "$running" ]]; then converged=0; fi
             done
             if [[ "$converged" -eq 1 ]]; then
               echo "Verified desired and running container image for all required RivalWatch roles."
